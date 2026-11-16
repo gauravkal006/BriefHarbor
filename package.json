@@ -1,0 +1,6 @@
+{
+ "name":"briefharbor","private":true,"workspaces":["apps/*","packages/*"],
+ "engines":{"node":"22.x"},
+ "scripts":{"dev":"npm run build -w @briefharbor/contracts && concurrently -k -n api,web \"npm run dev -w @briefharbor/api\" \"npm run dev -w @briefharbor/web\"","lint":"eslint .","typecheck":"npm run typecheck --workspaces","build":"npm run build -w @briefharbor/contracts && npm run build -w @briefharbor/api && npm run build -w @briefharbor/web","seed":"npm run seed -w @briefharbor/api","start:api":"npm run start -w @briefharbor/api","start:web":"npm run start -w @briefharbor/web","test:api":"node --env-file=apps/api/.env --test apps/api/test/smoke.mjs","test:ui":"playwright test","build:demo":"node scripts/frontend-demo.mjs","dev:demo":"node scripts/frontend-demo.mjs dev"},
+ "devDependencies":{"eslint":"^9.39.0","typescript-eslint":"^8.48.0","typescript":"^5.9.3","concurrently":"^9.2.1","@playwright/test":"^1.57.0","eslint-plugin-react-hooks":"^5.2.0"}
+}

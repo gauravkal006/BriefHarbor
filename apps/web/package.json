@@ -1,0 +1,1 @@
+{"name":"@briefharbor/web","private":true,"scripts":{"dev":"next dev","start":"next start","typecheck":"tsc --noEmit","build":"next build"},"dependencies":{"@briefharbor/contracts":"*","next":"^15.5.9","react":"^19.2.3","react-dom":"^19.2.3","lucide-react":"^0.562.0"},"devDependencies":{"@types/node":"^22","@types/react":"^19","@types/react-dom":"^19"}}
