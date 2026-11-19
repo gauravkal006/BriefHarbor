@@ -1,0 +1,7 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs",
+  "buildCommand": "cd ../.. && npm run build -w @briefharbor/contracts && npm run build -w @briefharbor/web",
+  "installCommand": "cd ../.. && npm install --no-audit --no-fund"
+}
+

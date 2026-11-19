@@ -4,7 +4,7 @@ import * as contract from '@briefharbor/contracts'
 import type { Database, FactVersion, MediaInquiry } from '../db/index.js'
 import { activeUser } from '../middleware/session.js'
 import { conflict, forbidden, missing, send, validate } from '../middleware/http.js'
-import { audit, caseScope, eligibleOwner, ownerRoles, requireOpen, requireRole, transaction } from './case-scope.js'
+import { audit, caseScope, eligibleOwner, ownerRoles, requireOpen, requireRole, transaction, workflowLock } from './case-scope.js'
 import { factDto, inquiryDto } from './dto.js'
 
 export function recordRoutes(db: Database) {
@@ -14,6 +14,7 @@ export function recordRoutes(db: Database) {
     const caseId = new ObjectId(validate(contract.id, req.params.caseId, 'caseId'))
     const input = validate(contract.factInput, req.body)
     const fact = await transaction(db, async session => {
+      await workflowLock(db, caseId, session)
       const { item, scope, roles } = await caseScope(db, caseId, user._id, session)
       requireRole(roles, 'COORDINATOR')
       requireOpen(item)
@@ -39,6 +40,7 @@ export function recordRoutes(db: Database) {
     const factId = new ObjectId(validate(contract.id, req.params.factId, 'factId'))
     const input = validate(contract.factEdit, req.body)
     const fact = await transaction(db, async session => {
+      await workflowLock(db, caseId, session)
       const { item, scope, roles } = await caseScope(db, caseId, user._id, session)
       const key = { ...scope, _id: factId }
       const current = await db.facts.findOne(key, { session })
@@ -47,9 +49,6 @@ export function recordRoutes(db: Database) {
       requireOpen(item)
       if (!current.ownerId.equals(user._id)) throw forbidden()
       if (current.status !== 'UNVERIFIED') throw conflict('Only an unverified fact can be verified.')
-      const bumped = await db.cases.updateOne({ _id: item._id, clientId: item.clientId, workflowVersion: item.workflowVersion },
-        { $inc: { workflowVersion: 1 } }, { session })
-      if (!bumped.modifiedCount) throw conflict('The case changed. Reload and try again.')
       const updated = await db.facts.findOneAndUpdate({ ...key, status: 'UNVERIFIED' }, { $set: {
         status: input.status, visibility: input.visibility ?? current.visibility, verifierId: user._id, verifiedAt: new Date(),
       } }, { session, returnDocument: 'after' })
@@ -64,6 +63,7 @@ export function recordRoutes(db: Database) {
     const caseId = new ObjectId(validate(contract.id, req.params.caseId, 'caseId'))
     const input = validate(contract.inquiryInput, req.body)
     const inquiry = await transaction(db, async session => {
+      await workflowLock(db, caseId, session)
       const { item, scope, roles } = await caseScope(db, caseId, user._id, session)
       requireRole(roles, 'COORDINATOR')
       requireOpen(item)
@@ -85,6 +85,7 @@ export function recordRoutes(db: Database) {
     const inquiryId = new ObjectId(validate(contract.id, req.params.inquiryId, 'inquiryId'))
     const input = validate(contract.inquiryEdit, req.body)
     const inquiry = await transaction(db, async session => {
+      await workflowLock(db, caseId, session)
       const { item, scope, roles } = await caseScope(db, caseId, user._id, session)
       const key = { ...scope, _id: inquiryId }
       const current = await db.inquiries.findOne(key, { session })

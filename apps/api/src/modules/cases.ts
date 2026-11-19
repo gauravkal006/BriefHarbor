@@ -16,7 +16,7 @@ export function caseRoutes(db: Database) {
     const clients = await db.clients.find({ _id: { $in: memberships.map(item => item.clientId) } }).sort({ name: 1 }).toArray()
     const results = await Promise.all(clients.map(async client => ({
       id: client._id.toHexString(), name: client.name, synthetic: client.synthetic,
-      members: memberships.some(item => item.clientId.equals(client._id) && item.roles.includes('COORDINATOR')) ? await people(db, client._id) : [],
+      members: memberships.some(item => item.clientId.equals(client._id) && (item.roles.includes('COORDINATOR') || item.roles.includes('PR_LEAD'))) ? await people(db, client._id) : [],
       roles: memberships.find(item => item.clientId.equals(client._id))?.roles ?? [],
     })))
     send(res, contract.clients, results)

@@ -1,7 +1,7 @@
 import { ObjectId, type ClientSession } from 'mongodb'
 import type { Role } from '@briefharbor/contracts'
 import type { Case, Database } from '../db/index.js'
-import { forbidden, HttpError, missing } from '../middleware/http.js'
+import { conflict, forbidden, HttpError, missing } from '../middleware/http.js'
 
 export const ownerRoles: Role[] = ['COORDINATOR', 'PR_LEAD']
 
@@ -51,10 +51,30 @@ export async function eligibleOwner(db: Database, clientId: ObjectId, ownerId: O
   return roles
 }
 
-export function audit(db: Database, item: Case, actorId: ObjectId, targetId: ObjectId, action: string, session: ClientSession) {
-  return db.audit.insertOne({ clientId: item.clientId, caseId: item._id, actorId, targetId, action, at: new Date() }, { session })
+export function audit(db: Database, item: Case, actorId: ObjectId, targetId: ObjectId, action: string, session: ClientSession, reason?: string) {
+  return db.audit.insertOne({ clientId: item.clientId, caseId: item._id, actorId, targetId, action, at: new Date(), ...(reason ? { reason } : {}) }, { session })
 }
 
 export function transaction<T>(db: Database, run: (session: ClientSession) => Promise<T>) {
-  return db.client.withSession(session => session.withTransaction(() => run(session)))
+  return db.client.withSession(session => session.withTransaction(() => run(session), {
+    readConcern: { level: 'snapshot' }, writeConcern: { w: 'majority' }, timeoutMS: 15000, maxCommitTimeMS: 5000,
+  }))
+}
+
+export async function workflowLock(db: Database, caseId: ObjectId, session: ClientSession) {
+  const item = await db.cases.findOneAndUpdate({ _id: caseId }, { $inc: { workflowVersion: 1 } }, { session, returnDocument: 'after' })
+  if (!item) throw missing()
+  return item
+}
+
+export async function requireEvidence(db: Database, scope: { clientId: ObjectId; caseId: ObjectId }, ids: string[], session: ClientSession) {
+  const unique = [...new Set(ids)]
+  const facts = await db.facts.find({ ...scope, _id: { $in: unique.map(id => new ObjectId(id)) }, status: 'VERIFIED', visibility: 'SHAREABLE' }, { session }).toArray()
+  if (!unique.length || facts.length !== unique.length) throw conflict('Every cited fact must still be verified and shareable.')
+  return facts
+}
+
+export async function flagDeliveries(db: Database, scope: { clientId: ObjectId; caseId: ObjectId }, factId: string, session: ClientSession) {
+  const revisions = await db.revisions.find({ ...scope, factVersionIds: factId }, { session }).toArray()
+  await db.deliveries.updateMany({ ...scope, revisionId: { $in: revisions.map(item => item._id.toHexString()) } }, { $set: { followUp: true } }, { session })
 }

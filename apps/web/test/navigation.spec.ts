@@ -6,7 +6,11 @@ test('Workspace navigation using the typed synthetic fixture', async ({ page }) 
     const path = new URL(route.request().url()).pathname
     const responses: Record<string, unknown> = {
       '/api/auth/session': profile, '/api/clients': [demoClient],
-      '/api/cases': [demoSummary], ['/api/cases/' + demoCase.id]: demoCase,
+      '/api/cases': [demoSummary],
+      ['/api/cases/' + demoCase.id + '/workflow']: {
+        statements: [], revisions: [], tasks: [], deliveries: [], timeline: [],
+        members: demoCase.members, status: demoCase.status, sensitiveClaims: false, personnelStatement: false,
+      }, ['/api/cases/' + demoCase.id]: demoCase,
     }
     const data = responses[path]
     await route.fulfill(data === undefined ? {

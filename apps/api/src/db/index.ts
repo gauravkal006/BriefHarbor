@@ -1,3 +1,4 @@
+import type { Statement, Revision, Decision, ExportRecord, Delivery, Task } from './workflow.js'
 import { MongoClient, type Db, type ObjectId } from 'mongodb'
 import type { SessionData } from 'express-session'
 import type { CaseSummary, Fact, Inquiry, Role } from '@briefharbor/contracts'
@@ -11,7 +12,7 @@ export type Client = Entity & { name: string; synthetic: boolean }
 export type Member = ClientScope & { userId: ObjectId; roles: Role[]; active: boolean }
 export type Assignment = CaseScope & { userId: ObjectId; role: Role }
 export type Case = Entity & ClientScope & Pick<CaseSummary, 'title' | 'type' | 'severity' | 'status' | 'synthetic'> & {
-  ownerId: ObjectId; nextUpdateAt: Date; createdAt: Date; workflowVersion: number;
+  ownerId: ObjectId; nextUpdateAt: Date; createdAt: Date; workflowVersion: number; sensitiveClaims?: boolean; personnelStatement?: boolean;
 }
 export type FactVersion = Entity & CaseScope & Pick<Fact, 'claim' | 'source' | 'version' | 'visibility' | 'status'> & {
   logicalFactId: ObjectId; ownerId: ObjectId; verifierId: ObjectId | null; verifiedAt: Date | null; createdAt: Date;
@@ -20,7 +21,7 @@ export type MediaInquiry = Entity & CaseScope & Pick<Inquiry, 'outlet' | 'contac
   ownerId: ObjectId; deadlineAt: Date; createdAt: Date;
 }
 export type SessionRow = { _id: string; data: SessionData; expiresAt: Date }
-export type Audit = ClientScope & { caseId: ObjectId; actorId: ObjectId; targetId: ObjectId; action: string; at: Date }
+export type Audit = ClientScope & { caseId: ObjectId; actorId: ObjectId; targetId: ObjectId; action: string; at: Date; reason?: string }
 
 function collections(db: Db) {
   return {
@@ -29,11 +30,25 @@ function collections(db: Db) {
     cases: db.collection<Case>('cases'), facts: db.collection<FactVersion>('factVersions'),
     inquiries: db.collection<MediaInquiry>('inquiries'), audit: db.collection<Audit>('auditEvents'),
     sessions: db.collection<SessionRow>('sessions'),
+    statements: db.collection<Statement>('statements'),
+    revisions: db.collection<Revision>('statementRevisions'),
+    decisions: db.collection<Decision>('decisions'),
+    exports: db.collection<ExportRecord>('exports'),
+    deliveries: db.collection<Delivery>('deliveries'),
+    tasks: db.collection<Task>('tasks'),
   }
 }
 
 async function indexes(c: ReturnType<typeof collections>) {
   await Promise.all([
+    c.revisions.createIndex({ statementId: 1, version: 1 }, { unique: true }),
+    c.revisions.createIndex({ clientId: 1, caseId: 1, 'reviewers.userId': 1, state: 1 }),
+    c.statements.createIndex({ clientId: 1, caseId: 1 }),
+    c.decisions.createIndex({ revisionId: 1, userId: 1 }, { unique: true }),
+    c.deliveries.createIndex({ caseId: 1, idempotencyKey: 1 }, { unique: true }),
+    c.deliveries.createIndex({ clientId: 1, caseId: 1, revisionId: 1 }),
+    c.exports.createIndex({ clientId: 1, caseId: 1, revisionId: 1 }),
+    c.tasks.createIndex({ clientId: 1, caseId: 1, status: 1, deadlineAt: 1 }),
     c.users.createIndex({ email: 1 }, { unique: true }),
     c.members.createIndex({ clientId: 1, userId: 1 }, { unique: true }),
     c.members.createIndex({ userId: 1, active: 1 }),
@@ -49,7 +64,7 @@ async function indexes(c: ReturnType<typeof collections>) {
 }
 
 export async function connect(config: Config) {
-  const client = new MongoClient(config.uri, { serverSelectionTimeoutMS: 6000, waitQueueTimeoutMS: 6000, socketTimeoutMS: 15000 })
+  const client = new MongoClient(config.uri, { maxPoolSize: 10, maxIdleTimeMS: 60000, serverSelectionTimeoutMS: 6000, waitQueueTimeoutMS: 6000, socketTimeoutMS: 15000 })
   try {
     await client.connect()
     const db = client.db(config.dbName)

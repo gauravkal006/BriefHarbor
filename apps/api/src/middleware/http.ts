@@ -28,6 +28,8 @@ export const errors: ErrorRequestHandler = (error, _req, res, next) => {
   let failure = error instanceof HttpError ? error : new HttpError(500, 'INTERNAL', 'The request could not be completed.')
   if (error instanceof MongoServerError && (error.code === 11000 || error.hasErrorLabel('TransientTransactionError'))) {
     failure = conflict('The record changed. Reload and try again.')
+  } else if (error instanceof Error && error.name === 'MongoOperationTimeoutError') {
+    failure = conflict('The workflow timed out. Reload before retrying.')
   } else if (error?.type === 'entity.parse.failed') {
     failure = new HttpError(422, 'VALIDATION', 'Submit a valid JSON body.')
   } else if (error?.type === 'entity.too.large') {

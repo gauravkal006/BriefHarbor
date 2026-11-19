@@ -1,4 +1,5 @@
 'use client'
+import { WorkflowPanel } from './workflow-panel'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { ArrowLeft } from 'lucide-react'
@@ -10,7 +11,7 @@ import { useLoad } from '../lib/use-load'
 import { useSession } from './session'
 import { ActionForm, Badge, Deadline, Field, inputProps, Notice, Owner, valueOf } from './ui'
 
-const views = [['overview', 'Overview'], ['facts', 'Facts'], ['inquiries', 'Media Inquiries']] as const
+const views = [['overview', 'Overview'], ['facts', 'Facts'], ['inquiries', 'Media Inquiries'], ['workflow', 'Response workflow']] as const
 export function CaseWorkspace({ caseId }: { caseId: string }) {
   const [data, setData] = useState<CaseDetail | null>(null)
   const load = useCallback(() => api.detail(caseId), [caseId])
@@ -48,6 +49,7 @@ export function CaseWorkspace({ caseId }: { caseId: string }) {
           window.history.replaceState(null, '', url)
         }}>{title}</button>)}</nav>
       {saved && <Notice>{saved}</Notice>}
+      {view === 'workflow' && <WorkflowPanel record={current} onChange={async () => { setData(await load()) }} />}
       {view === 'overview' && <section className="panel padded">
         <h2>Overview</h2><dl className="overview-grid">
           <div><dt>Case owner</dt><dd>{memberName(current.ownerId)}</dd></div>
@@ -67,6 +69,19 @@ export function CaseWorkspace({ caseId }: { caseId: string }) {
             <ActionForm submit="Verify fact" onSubmit={form => update(() => api.verify(caseId, fact.id, form.has('share')), 'Fact verified.')}>
               {() => <label className="checkbox"><input name="share" type="checkbox" defaultChecked={fact.visibility === 'SHAREABLE'} /> Mark shareable</label>}
             </ActionForm>}
+                  {account?.id === fact.ownerId && current.roles.includes('FACT_OWNER') && fact.status !== 'SUPERSEDED' && current.status !== 'CLOSED' &&
+            <details className="entry"><summary>Change evidence visibility or version</summary>
+              <ActionForm submit="Update evidence" onSubmit={form => update(() => api.evidence(caseId, fact.id,
+                valueOf(form, 'action' + fact.id) !== 'SUPERSEDE' ? { action: valueOf(form, 'action' + fact.id) as 'RESTRICT' | 'SHARE', reason: valueOf(form, 'evidenceReason' + fact.id) } :
+                { action: 'SUPERSEDE', reason: valueOf(form, 'evidenceReason' + fact.id), claim: valueOf(form, 'replacementClaim' + fact.id), source: valueOf(form, 'replacementSource' + fact.id) }), 'Evidence updated.')}>
+                {errors => <>
+                  <Field title="Evidence action" name={"action" + fact.id} errors={errors}><select {...inputProps('action' + fact.id, errors)}><option value="RESTRICT">Restrict to internal</option><option value="SHARE">Mark verified evidence shareable</option><option value="SUPERSEDE">Supersede with a new unverified version</option></select></Field>
+                  <Field title="Reason" name={"evidenceReason" + fact.id} errors={errors}><input {...inputProps('evidenceReason' + fact.id, errors)} required maxLength={1000} /></Field>
+                  <Field title="Replacement claim (for supersession)" name={"replacementClaim" + fact.id} errors={errors}><textarea {...inputProps('replacementClaim' + fact.id, errors)} maxLength={2000} /></Field>
+                  <Field title="Replacement source (for supersession)" name={"replacementSource" + fact.id} errors={errors}><input {...inputProps('replacementSource' + fact.id, errors)} maxLength={500} /></Field>
+                </>}
+              </ActionForm>
+            </details>}
         </article>)}
         {canWrite ? <details className="entry"><summary>Add fact</summary><ActionForm submit="Save fact" onSubmit={form =>
           update(() => api.addFact(caseId, {
@@ -95,7 +110,7 @@ export function CaseWorkspace({ caseId }: { caseId: string }) {
                 ...(reason ? { status: 'CLOSED_WITHOUT_RESPONSE', closureReason: reason } : {}),
               }), 'Inquiry updated.')
             }} /></details>}
-        </article>)}
+</article>)}
         {canWrite ? <details className="entry"><summary>Add inquiry</summary><InquiryForm members={current.members} onSave={form =>
           update(() => api.addInquiry(caseId, {
             outlet: valueOf(form, 'outlet'), contact: valueOf(form, 'contact'), question: valueOf(form, 'question'),

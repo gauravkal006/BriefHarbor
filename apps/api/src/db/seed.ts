@@ -21,6 +21,7 @@ const demoUsers: { _id: ObjectId; name: string; email: string; clientId: ObjectI
   { _id: id(202), name: 'Ellis Morgan', email: 'pr@riverstone.example.test', clientId: riverstone, role: 'PR_LEAD' },
   { _id: id(203), name: 'Samira Bell', email: 'legal@riverstone.example.test', clientId: riverstone, role: 'LEGAL_REVIEWER' },
   { _id: id(204), name: 'Dev Patel', email: 'facts@riverstone.example.test', clientId: riverstone, role: 'FACT_OWNER' },
+  { _id: id(206), name: 'Robin Taylor', email: 'client@riverstone.example.test', clientId: riverstone, role: 'CLIENT_REVIEWER' },
   { _id: id(205), name: 'Alex Jordan', email: 'viewer@bluedune.example.test', clientId: blueDune, role: 'VIEWER' },
 ]
 const now = new Date()
@@ -33,6 +34,11 @@ const event: Case = {
   _id: id(302), clientId: blueDune, title: 'Distribution centre access disruption', type: 'HOSTILE_PUBLIC_EVENT',
   severity: 'MEDIUM', status: 'MONITORING', ownerId: id(205), nextUpdateAt: offset(120), createdAt: now, workflowVersion: 0, synthetic: true,
 }
+const additional: Case[] = [
+  { ...breach, _id: id(303), title: 'Supplier litigation response', type: 'LAWSUIT', status: 'NEW' },
+  { ...breach, _id: id(304), title: 'Executive conduct inquiry', type: 'EXECUTIVE_SCANDAL', status: 'NEW', personnelStatement: true },
+  { ...breach, _id: id(305), title: 'Flagship store event disruption', type: 'HOSTILE_PUBLIC_EVENT', status: 'NEW', sensitiveClaims: true },
+]
 const passwordHash = await hash(password)
 const db = await connect(options)
 try {
@@ -41,14 +47,16 @@ try {
     for (const client of [{ _id: riverstone, name: 'Riverstone Retail' }, { _id: blueDune, name: 'Blue Dune Logistics' }]) {
       await db.clients.updateOne({ _id: client._id }, { $setOnInsert: { ...client, synthetic: true } }, upsert)
     }
-    for (const item of [breach, event]) {
+    for (const item of [breach, event, ...additional]) {
       await db.cases.updateOne({ _id: item._id }, { $setOnInsert: item }, upsert)
     }
     for (const { _id, name, email, clientId, role } of demoUsers) {
       await db.users.updateOne({ _id }, { $setOnInsert: { _id, name, email, active: true }, $set: { passwordHash } }, upsert)
       await db.members.updateOne({ clientId, userId: _id }, { $setOnInsert: { clientId, userId: _id, roles: [role], active: true } }, upsert)
-      const claim = { caseId: clientId.equals(riverstone) ? breach._id : event._id, clientId, userId: _id, role }
-      await db.assignments.updateOne(claim, { $setOnInsert: claim }, upsert)
+      for (const item of clientId.equals(riverstone) ? [breach, ...additional] : [event]) {
+        const claim = { caseId: item._id, clientId, userId: _id, role }
+        await db.assignments.updateOne(claim, { $setOnInsert: claim }, upsert)
+      }
     }
     const scope = { clientId: riverstone, caseId: breach._id }
     for (const record of [

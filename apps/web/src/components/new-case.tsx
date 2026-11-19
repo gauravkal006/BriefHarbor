@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { ArrowLeft } from 'lucide-react'
-import { caseInput, caseType, severity } from '@briefharbor/contracts'
+import { caseInput, caseType, severity, scenarioTemplates } from '@briefharbor/contracts'
 import { api, ApiError } from '../lib/api'
 import { caseHref } from '../lib/demo-mode'
 import { label, utc } from '../lib/format'
@@ -15,6 +15,7 @@ export function NewCase() {
   const { data, error } = useLoad(api.clients)
   const clients = data?.filter(client => client.roles.includes('COORDINATOR'))
   const [clientId, setClientId] = useState('')
+  const [scenario, setScenario] = useState<keyof typeof scenarioTemplates>('DATA_BREACH')
   useEffect(() => { setClientId(new URLSearchParams(window.location.search).get('clientId') ?? '') }, [])
   const client = clients?.find(item => item.id === clientId) ?? clients?.[0]
   return <>
@@ -30,11 +31,12 @@ export function NewCase() {
         const created = await api.create(parsed.data)
         router.push(caseHref(created.id))
       }}>{errors => <>
+        <Notice><strong>{scenarioTemplates[scenario].title}</strong><p>{scenarioTemplates[scenario].evidence}</p>{scenarioTemplates[scenario].reviewers}</Notice>
         <Field title="Client" name="clientId" errors={errors}><select {...inputProps('clientId', errors)} value={client.id} onChange={event => setClientId(event.target.value)}>
           {clients?.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></Field>
         <Field title="Case title" name="title" errors={errors}><input {...inputProps('title', errors)} maxLength={160} required /></Field>
         <div className="form-row">
-          <Field title="Scenario" name="type" errors={errors}><select {...inputProps('type', errors)}>{caseType.options.map(type => <option key={type} value={type}>{label(type)}</option>)}</select></Field>
+          <Field title="Scenario" name="type" errors={errors}><select {...inputProps('type', errors)} value={scenario} onChange={event => setScenario(event.target.value as typeof scenario)}>{caseType.options.map(type => <option key={type} value={type}>{label(type)}</option>)}</select></Field>
           <Field title="Severity" name="severity" errors={errors}><select {...inputProps('severity', errors)} defaultValue="MEDIUM">{severity.options.map(item => <option key={item} value={item}>{label(item)}</option>)}</select></Field>
         </div>
         <div className="form-row"><Owner key={client.id} members={client.members.filter(member => member.roles.some(role => role === 'COORDINATOR' || role === 'PR_LEAD'))} errors={errors} />

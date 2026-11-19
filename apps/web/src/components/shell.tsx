@@ -4,7 +4,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { FolderClosed, LayoutDashboard, LogOut, Menu } from 'lucide-react'
 import { useEffect, useState, type ReactNode } from 'react'
 import { api } from '../lib/api'
-import { resetDemo, setDemoRole } from '../lib/demo-api'
+import { getRole, resetDemo, setDemoRole, type DemoRole } from '../lib/demo-api'
 import { isDemo } from '../lib/demo-mode'
 import { Brand, Notice } from './ui'
 import { useSession } from './session'
@@ -48,12 +48,12 @@ export function Shell({ children }: { children: ReactNode }) {
         <span>Frontend demo · Fictional data</span>
         <div className="demo-controls">
           <label htmlFor="demo-role">Demo role</label>
-          <select id="demo-role" value={account.email.startsWith('facts@') ? 'analyst' : 'coordinator'}
+          <select id="demo-role" value={getRole()}
             onChange={event => {
-              setDemoRole(event.target.value === 'analyst' ? 'analyst' : 'coordinator')
+              setDemoRole(event.target.value as DemoRole)
               void refresh()
             }}>
-            <option value="coordinator">Coordinator</option><option value="analyst">Fact owner</option>
+            <option value="coordinator">Coordinator</option><option value="analyst">Fact owner</option><option value="pr">PR lead</option><option value="legal">Legal reviewer</option><option value="client">Client reviewer</option>
           </select>
           <button className="button" onClick={() => {
             resetDemo()

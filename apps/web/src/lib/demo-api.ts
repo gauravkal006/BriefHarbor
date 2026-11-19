@@ -5,17 +5,31 @@ import { demoCase, demoClient, profile } from './fixture'
 
 const key = 'briefharbor.recruiter.v1'
 const analyst: Person = { id: '000000000000000000000004', name: 'Samir Rao', roles: ['FACT_OWNER'] }
-const members: Person[] = [...demoClient.members, analyst]
+const reviewers: Person[] = [
+  { id: '000000000000000000000007', name: 'Ellis Morgan', roles: ['PR_LEAD'] },
+  { id: '000000000000000000000008', name: 'Samira Bell', roles: ['LEGAL_REVIEWER'] },
+  { id: '000000000000000000000009', name: 'Robin Taylor', roles: ['CLIENT_REVIEWER'] },
+]
+const members: Person[] = [...demoClient.members, analyst, ...reviewers]
 const client = { ...demoClient, members }
 const analystAccount = { id: analyst.id, name: analyst.name, email: 'facts@riverstone.example.test' }
-type DemoRole = 'coordinator' | 'analyst'
+export type DemoRole = 'coordinator' | 'analyst' | 'pr' | 'legal' | 'client'
 
-function getRole(): DemoRole {
-  return sessionStorage.getItem(key) === 'analyst' ? 'analyst' : 'coordinator'
+export function getRole(): DemoRole {
+  const role = sessionStorage.getItem(key)
+  return role === 'analyst' || role === 'pr' || role === 'legal' || role === 'client' ? role : 'coordinator'
 }
-
+export function demoActor() {
+  const role = getRole()
+  if (role === 'analyst') return analystAccount
+  const reviewer = reviewers[{ pr: 0, legal: 1, client: 2 }[role as 'pr' | 'legal' | 'client']]
+  return reviewer ? { id: reviewer.id, name: reviewer.name, email: role + '@riverstone.example.test' } : profile
+}
+export function demoRoles() {
+  return members.find(person => person.id === demoActor().id)?.roles ?? []
+}
 export function setDemoRole(role: DemoRole) { sessionStorage.setItem(key, role) }
-export function resetDemo() { localStorage.removeItem(key); setDemoRole('coordinator') }
+export function resetDemo() { localStorage.removeItem(key); localStorage.removeItem('briefharbor.workflow.v1'); setDemoRole('coordinator') }
 
 function seed(): CaseDetail[] {
   const at = (minutes: number) => new Date(Date.now() + minutes * 60_000).toISOString()
@@ -36,19 +50,19 @@ function seed(): CaseDetail[] {
   }]
 }
 
-function read(): CaseDetail[] {
+export function readDemoCases(): CaseDetail[] {
   const stored = localStorage.getItem(key)
   if (stored) {
     try {
       const parsed = contract.caseDetail.array().safeParse(JSON.parse(stored))
-      if (parsed.success) return parsed.data
+      if (parsed.success) return parsed.data.map(record => ({ ...record, members, factOwnerOptions: [analyst] }))
     } catch { /* Recreate an unreadable demo snapshot. */ }
   }
   const initial = seed()
-  save(initial)
+  saveDemoCases(initial)
   return initial
 }
-function save(cases: CaseDetail[]) { localStorage.setItem(key, JSON.stringify(cases)) }
+export function saveDemoCases(cases: CaseDetail[]) { localStorage.setItem(key, JSON.stringify(cases)) }
 function id() { return crypto.randomUUID().replaceAll('-', '').slice(0, 24) }
 function missing(): never { throw new ApiError('This record is unavailable in the demo.', 404) }
 
@@ -64,27 +78,27 @@ function coordinator() {
   if (getRole() !== 'coordinator') throw new ApiError('Switch to Coordinator to make this change.', 403)
 }
 
-function update<T>(caseId: string, change: (record: CaseDetail) => T): T {
-  const cases = read()
+export function updateDemoCase<T>(caseId: string, change: (record: CaseDetail) => T): T {
+  const cases = readDemoCases()
   const record = cases.find(item => item.id === caseId) ?? missing()
   const result = change(record)
   record.nearestInquiryDeadlineAt = record.inquiries.filter(item => item.status === 'OPEN')
     .map(item => item.deadlineAt).sort()[0] ?? null
-  save(cases)
+  saveDemoCases(cases)
   return result
 }
 
 export const demoApi = {
-  async session() { return getRole() === 'analyst' ? analystAccount : profile },
-  async clients() { return [{ ...client, roles: getRole() === 'analyst' ? analyst.roles : profileRoles() }] },
+  async session() { return demoActor() },
+  async clients() { return [{ ...client, roles: demoRoles() }] },
   async cases(filters: CaseFilters) {
-    return read().filter(item => item.clientId === filters.clientId &&
+    return readDemoCases().filter(item => item.clientId === filters.clientId &&
       (!filters.status || item.status === filters.status) && (!filters.severity || item.severity === filters.severity) &&
       (!filters.type || item.type === filters.type)).map(item => contract.caseSummary.parse(itemSummary(item)))
   },
   async detail(caseId: string) {
-    const record = read().find(item => item.id === caseId) ?? missing()
-    return { ...record, roles: getRole() === 'analyst' ? analyst.roles : profileRoles() }
+    const record = readDemoCases().find(item => item.id === caseId) ?? missing()
+    return { ...record, roles: demoRoles() }
   },
   async create(input: CaseInput) {
     coordinator()
@@ -93,13 +107,13 @@ export const demoApi = {
       ...data, id: id(), status: 'NEW', synthetic: true, nearestInquiryDeadlineAt: null,
       roles: profileRoles(), members, facts: [], inquiries: [], factOwnerOptions: [analyst],
     }
-    save([record, ...read()])
+    saveDemoCases([record, ...readDemoCases()])
     return record
   },
   async addFact(caseId: string, input: FactInput) {
     coordinator()
     const data = valid(contract.factInput, input)
-    return update(caseId, record => {
+    return updateDemoCase(caseId, record => {
       const factId = id()
       const fact: Fact = { ...data, id: factId, logicalFactId: factId, version: 1, status: 'UNVERIFIED', verifierId: null, verifiedAt: null }
       record.facts.push(fact)
@@ -108,7 +122,7 @@ export const demoApi = {
   },
   async verify(caseId: string, factId: string, share: boolean) {
     if (getRole() !== 'analyst') throw new ApiError('Only the fact owner can verify this fact.', 403)
-    return update(caseId, record => {
+    return updateDemoCase(caseId, record => {
       const fact = record.facts.find(item => item.id === factId) ?? missing()
       if (fact.ownerId !== analyst.id || fact.status !== 'UNVERIFIED') throw new ApiError('This fact cannot be verified.', 409)
       fact.status = 'VERIFIED'
@@ -121,7 +135,7 @@ export const demoApi = {
   async addInquiry(caseId: string, input: InquiryInput) {
     coordinator()
     const data = valid(contract.inquiryInput, input)
-    return update(caseId, record => {
+    return updateDemoCase(caseId, record => {
       const inquiry: Inquiry = { ...data, id: id(), status: 'OPEN', closureReason: null }
       record.inquiries.push(inquiry)
       return inquiry
@@ -129,7 +143,7 @@ export const demoApi = {
   },
   async editInquiry(caseId: string, inquiryId: string, input: InquiryEdit) {
     coordinator()
-    return update(caseId, record => {
+    return updateDemoCase(caseId, record => {
       const inquiry = record.inquiries.find(item => item.id === inquiryId) ?? missing()
       if (inquiry.status !== 'OPEN') throw new ApiError('Only an open inquiry can be edited.', 409)
       return Object.assign(inquiry, valid(contract.inquiryEdit, input))

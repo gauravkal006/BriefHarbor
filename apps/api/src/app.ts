@@ -1,3 +1,4 @@
+import { workflowRoutes } from './modules/workflow.js'
 import express from 'express'
 import type { Config } from './config.js'
 import type { Database } from './db/index.js'
@@ -19,10 +20,11 @@ export function createApp(db: Database, config: Config) {
     try { await db.db.command({ ping: 1, maxTimeMS: 2300 }); res.json({ data: { status: 'ready' } }) }
     catch { res.status(503).json({ error: { code: 'UNAVAILABLE', message: 'Service unavailable.', fieldErrors: {} } }) }
   })
-  app.use('/api', express.json({ limit: '24kb' }), sessions(db, config), protect(config.origin))
+  app.use('/api', express.json({ limit: '128kb' }), sessions(db, config), protect(config.origin))
   app.use('/api/auth', authRoutes(db, config))
   app.use('/api', caseRoutes(db))
-  app.use((_req, _res) => { throw missing() })
+  app.use('/api', workflowRoutes(db))
+  app.use(() => { throw missing() })
   app.use(errors)
   return app
 }

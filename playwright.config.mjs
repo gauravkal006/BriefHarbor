@@ -5,6 +5,7 @@ import { existsSync } from 'node:fs'
 if (existsSync('apps/api/.env')) loadEnvFile('apps/api/.env')
 export default defineConfig({
   testDir: './apps/web/test',
+  testIgnore: '**/demo-workflow.mjs',
   workers: 1,
   timeout: 75_000,
   use: { baseURL: process.env.WEB_ORIGIN || 'http://localhost:3000' },

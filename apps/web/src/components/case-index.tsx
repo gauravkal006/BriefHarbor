@@ -1,4 +1,5 @@
 'use client'
+import { WorkQueue } from './work-queue'
 import { useCallback, useState } from 'react'
 import Link from 'next/link'
 import { Clock3, FolderOpen, Plus, TriangleAlert } from 'lucide-react'
@@ -43,6 +44,7 @@ function CaseList({ client, dashboard }: { client: Client; dashboard: boolean })
         { Icon: TriangleAlert, value: deadlines.filter(item => Date.parse(item.at) < Date.now()).length, title: 'Cases with overdue inquiries' }]).map(({ Icon, value, title }) =>
         <div className="metric" key={title}><span className="icon-box"><Icon size={19} /></span><div><strong>{value}</strong><span>{title}</span></div></div>)}
     </div>}
+    {dashboard && data && !client.roles.every(role => role === 'VIEWER') && <WorkQueue cases={data} />}
     {dashboard && deadlines[0] && <div className="deadline-panel"><div><strong>Nearest media deadline</strong>
       <Link href={caseHref(deadlines[0].item.id, 'inquiries')}>{deadlines[0].item.title}</Link></div><Deadline value={deadlines[0].at} /></div>}
     <section className="panel">
