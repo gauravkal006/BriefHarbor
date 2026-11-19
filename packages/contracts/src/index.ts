@@ -155,4 +155,15 @@ export type TaskEdit = z.infer<typeof taskEdit>
 export type CaseEdit = z.infer<typeof caseEdit>
 export type AssignmentInput = z.infer<typeof assignmentInput>
 export type EvidenceEdit = z.infer<typeof evidenceEdit>
-
+export const registration = z.strictObject({
+  name: line(100),
+  email: z.email().max(254),
+  password: z.string().min(15, 'Use at least 15 characters.').max(256),
+})
+export const registrationForm = registration.extend({
+  confirmPassword: z.string(),
+}).refine(value => value.password === value.confirmPassword, {
+  path: ['confirmPassword'], message: 'Passwords must match.',
+})
+export const demoProfile = registration.pick({ name: true, email: true })
+export type Registration = z.infer<typeof registration>

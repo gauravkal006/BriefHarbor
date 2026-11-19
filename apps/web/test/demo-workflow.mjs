@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { demoApi, readDemoCases, resetDemo, setDemoRole } from '../src/lib/demo-api.ts'
 import { demoWorkflowApi as flow } from '../src/lib/demo-workflow.ts'
-import { reviewerPolicy } from '@briefharbor/contracts'
+import { demoProfile, registration, registrationForm, reviewerPolicy } from '@briefharbor/contracts'
 
 function storage() {
   const state = new Map()
@@ -10,6 +10,43 @@ function storage() {
 }
 Object.defineProperty(globalThis, 'localStorage', { value: storage(), configurable: true })
 Object.defineProperty(globalThis, 'sessionStorage', { value: storage(), configurable: true })
+
+test('Demo profiles persist without credentials and retain separate reviewer identities', async () => {
+  resetDemo()
+  const guest = await demoApi.session()
+  const cases = readDemoCases()
+  setDemoRole('legal')
+  const visitor = await demoApi.signup({ name: '  Demo Visitor  ', email: 'Visitor@Example.test', password: 'never-store-this-secret' })
+  assert.deepEqual(visitor, { ...guest, name: 'Demo Visitor', email: 'visitor@example.test' })
+  assert.deepEqual(await demoApi.session(), visitor)
+  assert.deepEqual(readDemoCases(), cases)
+  const stored = localStorage.getItem('briefharbor.demo-profile.v1')
+  assert.deepEqual(JSON.parse(stored), { name: 'Demo Visitor', email: 'visitor@example.test' })
+  assert.ok(!stored.includes('never-store-this-secret'))
+  setDemoRole('legal')
+  assert.notEqual((await demoApi.session()).id, visitor.id)
+  setDemoRole('coordinator')
+  assert.deepEqual(await demoApi.session(), visitor)
+  await assert.rejects(demoApi.signup({ name: ' ', email: 'broken' }), { status: 422 })
+  assert.deepEqual(await demoApi.session(), visitor)
+  await demoApi.logout()
+  assert.deepEqual(await demoApi.session(), guest)
+  localStorage.setItem('briefharbor.demo-profile.v1', '{broken')
+  assert.deepEqual(await demoApi.session(), guest)
+  resetDemo()
+})
+
+test('Registration rejects short, mismatched and privilege-bearing submissions', () => {
+  const valid = { name: '  Example Visitor  ', email: 'visitor@example.test', password: 'a long memorable passphrase' }
+  assert.equal(registration.parse(valid).name, 'Example Visitor')
+  for (const extra of [{ name: ' ' }, { email: 'broken' }, { password: 'short' }, { password: 'x'.repeat(257) }, { roles: ['PR_LEAD'] }, { clientId: '000000000000000000000065' }]) {
+    assert.equal(registration.safeParse({ ...valid, ...extra }).success, false)
+  }
+  assert.equal(registrationForm.safeParse({ ...valid, confirmPassword: 'different' }).success, false)
+  assert.equal(registrationForm.safeParse({ ...valid, confirmPassword: valid.password }).success, true)
+  assert.equal(demoProfile.safeParse({ name: valid.name, email: valid.email }).success, true)
+  assert.equal(demoProfile.safeParse(valid).success, false)
+})
 
 test('Full browser-local workflow preserves revisions and blocks export after evidence changes', async () => {
   resetDemo()

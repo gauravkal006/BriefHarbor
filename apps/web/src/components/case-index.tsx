@@ -21,7 +21,7 @@ export function CaseIndex({ dashboard = false }: { dashboard?: boolean }) {
     </div>
     {error && <Notice error>{error}</Notice>}
     {!clients && !error && <Notice>Loading clients…</Notice>}
-    {clients?.length === 0 && <Notice>You have no active client memberships.</Notice>}
+    {clients?.length === 0 && <Notice>Your account is ready. Ask your workspace coordinator to assign your client and case access.</Notice>}
     {client && <><div className="client-bar"><div><label htmlFor="workspace-client">Client</label>
       <select id="workspace-client" value={client.id} onChange={event => setClientId(event.target.value)}>
         {clients?.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></div>

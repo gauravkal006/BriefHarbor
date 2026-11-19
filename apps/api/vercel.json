@@ -2,6 +2,6 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "express",
   "buildCommand": "cd ../.. && npm run build -w @briefharbor/contracts",
-  "installCommand": "cd ../.. && npm install --no-audit --no-fund"
+  "installCommand": "cd ../.. && npm ci --no-audit --no-fund"
 }
 

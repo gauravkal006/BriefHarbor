@@ -57,6 +57,7 @@ const liveApi = {
   assign: (id: string, data: contract.AssignmentInput) => mutate(casePath(id) + '/assignments', 'POST', contract.acknowledgement, data),
   evidence: (id: string, factId: string, data: contract.EvidenceEdit) => mutate(casePath(id) + '/facts/' + factId + '/evidence', 'POST', contract.acknowledgement, data),
   session: () => request('/auth/session', contract.account),
+  signup: (data: contract.Registration) => mutate('/auth/signup', 'POST', contract.account, data),
   login: (email: string, password: string) => mutate('/auth/login', 'POST', contract.account, { email, password }),
   logout: () => mutate('/auth/logout', 'POST', contract.signedOut),
   clients: () => request('/clients', contract.clients),

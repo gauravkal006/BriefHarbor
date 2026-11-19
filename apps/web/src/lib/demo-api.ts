@@ -4,6 +4,7 @@ import { ApiError } from './api-error'
 import { demoCase, demoClient, profile } from './fixture'
 
 const key = 'briefharbor.recruiter.v1'
+const profileKey = 'briefharbor.demo-profile.v1'
 const analyst: Person = { id: '000000000000000000000004', name: 'Samir Rao', roles: ['FACT_OWNER'] }
 const reviewers: Person[] = [
   { id: '000000000000000000000007', name: 'Ellis Morgan', roles: ['PR_LEAD'] },
@@ -23,13 +24,20 @@ export function demoActor() {
   const role = getRole()
   if (role === 'analyst') return analystAccount
   const reviewer = reviewers[{ pr: 0, legal: 1, client: 2 }[role as 'pr' | 'legal' | 'client']]
-  return reviewer ? { id: reviewer.id, name: reviewer.name, email: role + '@riverstone.example.test' } : profile
+  return reviewer ? { id: reviewer.id, name: reviewer.name, email: role + '@riverstone.example.test' } : demoCoordinator()
+}
+function demoCoordinator() {
+  try {
+    const parsed = contract.demoProfile.safeParse(JSON.parse(localStorage.getItem(profileKey) ?? 'null'))
+    if (parsed.success) return { ...profile, ...parsed.data }
+  } catch { /* A guest can still explore if the stored profile is unreadable. */ }
+  return profile
 }
 export function demoRoles() {
   return members.find(person => person.id === demoActor().id)?.roles ?? []
 }
 export function setDemoRole(role: DemoRole) { sessionStorage.setItem(key, role) }
-export function resetDemo() { localStorage.removeItem(key); localStorage.removeItem('briefharbor.workflow.v1'); setDemoRole('coordinator') }
+export function resetDemo() { localStorage.removeItem(profileKey); localStorage.removeItem(key); localStorage.removeItem('briefharbor.workflow.v1'); setDemoRole('coordinator') }
 
 function seed(): CaseDetail[] {
   const at = (minutes: number) => new Date(Date.now() + minutes * 60_000).toISOString()
@@ -89,6 +97,25 @@ export function updateDemoCase<T>(caseId: string, change: (record: CaseDetail) =
 }
 
 export const demoApi = {
+  async login(email: string, password: string) {
+    void password
+    const parsed = valid(contract.login.pick({ email: true }), { email })
+    const current = demoCoordinator()
+    localStorage.setItem(profileKey, JSON.stringify({ name: current.name, email: parsed.email.toLowerCase() }))
+    setDemoRole('coordinator')
+    return demoCoordinator()
+  },
+  async signup(input: contract.Registration) {
+    const parsed = valid(contract.demoProfile, { name: input.name, email: input.email })
+    localStorage.setItem(profileKey, JSON.stringify({ ...parsed, email: parsed.email.toLowerCase() }))
+    setDemoRole('coordinator')
+    return demoCoordinator()
+  },
+  async logout() {
+    localStorage.removeItem(profileKey)
+    setDemoRole('coordinator')
+    return { signedOut: true as const }
+  },
   async session() { return demoActor() },
   async clients() { return [{ ...client, roles: demoRoles() }] },
   async cases(filters: CaseFilters) {

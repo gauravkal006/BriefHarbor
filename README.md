@@ -6,6 +6,7 @@ A crisis communications workspace for PR teams managing corporate incidents. Eac
 
 | Area | Workflow |
 | --- | --- |
+| Account access | Responsive sign-in and sign-up pages, password visibility controls, validated registration and session rotation. New accounts receive no client or case access automatically. |
 | Case intake | Assigned owners, client isolation, scenario and severity filters, next update, close and reopen with a reason |
 | Evidence | Assigned owners verify and mark facts shareable. Supersession creates a new unverified version and preserves the earlier claim. |
 | Statements | Versioned drafts, cited fact versions and immutable submitted text |
@@ -30,6 +31,8 @@ npm.cmd run dev:demo
 
 Open http://localhost:3000. The role selector includes Coordinator, Fact owner, PR lead, Legal reviewer and Client reviewer. Reset demo restores the fictional case.
 
+Open `/login` or `/signup` to personalize the demo with a browser-local name and email. Demo mode never asks for or stores passwords, and visitors can also open the sample workspace directly. This is a showcase flow; real authentication requires the Express API and MongoDB.
+
 ~~~powershell
 npm.cmd run build:demo
 ~~~
@@ -41,7 +44,7 @@ The export is written to apps/web/out. The [GitHub Pages demo](https://gauravkal
 ~~~powershell
 git clone https://github.com/gauravkal006/BriefHarbor.git
 cd BriefHarbor
-npm.cmd install
+npm.cmd ci
 Copy-Item apps/api/.env.example apps/api/.env
 Copy-Item apps/web/.env.example apps/web/.env.local
 node -p "require('node:crypto').randomBytes(32).toString('hex')"
@@ -50,7 +53,7 @@ notepad apps/api/.env
 
 Set SESSION_SECRET to the generated value. Set ALLOW_DEMO_SEED=true and choose a private DEMO_PASSWORD of 12–256 characters. Leave NODE_ENV=development for local seeding. Set NEXT_PUBLIC_BRIEFHARBOR_DEMO=false in the web environment.
 
-The authoring session cannot resolve the npm registry, so package-lock.json generation is pending. Once npm install succeeds, commit the generated lockfile and use npm ci on fresh checkouts.
+The committed lockfile pins the dependencies for clean checkouts. Real registration stores an Argon2 password hash, regenerates the session and leaves client membership empty. Client memberships and case roles must be provisioned by a trusted operator; there is no public role-selection or membership-management screen. Use the seeded identities for the recruiter workflow below. Email verification and password recovery are not implemented.
 
 With Docker Desktop running in Linux-container mode, run these commands from the repository root. The setup uses a named volume and loopback networking.
 
@@ -124,7 +127,7 @@ npm.cmd run test:ui
 
 Browser checks cover 1440 px and 390 px. API tests cover session security, nested IDs, cross-client isolation, self-approval, required review, requests for changes, stale revisions, immutable text, export gating, delivery retries, evidence follow-up, tasks, closure and concurrency.
 
-The browser-local workflow and reviewer-policy suites, source lint and frontend typecheck passed with cached dependencies. The cached Next build is blocked by a filesystem EPERM while writing generated case routes. Cached package versions differ from the declared fresh-install ranges, so these checks do not establish clean-install compatibility. Live database checks, a clean-install build, full API typecheck, browser automation and hosted verification remain pending because this session lacks dependency installation and database access. See docs/DEPLOYMENT.md for Vercel configuration.
+The account-access update passed source lint, frontend and API typechecks, API compilation, and four browser-storage/registration tests using freshly installed dependencies in an isolated verification copy. Windows denied npm workspace symlinks in the original checkout. The Next.js demo build compiled, then hit EPERM while creating generated route directories during static export. The four new account UI checks passed at 1440 px and 390 px against intercepted API responses, and both signup layouts were visually reviewed. The existing navigation check passed initially, but one later desktop run exceeded its five-second assertion during development compilation. Demo browser navigation hit the same Windows generated-directory restriction. Live MongoDB checks, complete production export and hosted verification remain pending. See docs/DEPLOYMENT.md for Vercel configuration.
 
 ## Repository
 

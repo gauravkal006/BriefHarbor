@@ -34,9 +34,9 @@ export function Owner({ name = 'ownerId', title = 'Owner', members, errors, init
     {members.map(member => <option key={member.id} value={member.id}>{member.name}</option>)}
   </select></Field>
 }
-export function ActionForm({ children, submit, onSubmit, className }: {
+export function ActionForm({ children, submit, onSubmit, className, pendingLabel = 'Saving…' }: {
   children: (errors: Record<string, string>) => ReactNode; submit: string;
-  onSubmit: (data: FormData) => Promise<void>; className?: string
+  onSubmit: (data: FormData) => Promise<void>; className?: string; pendingLabel?: string
 }) {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -56,7 +56,7 @@ export function ActionForm({ children, submit, onSubmit, className }: {
   }
   return <form onSubmit={handle} className={className ?? 'form'} aria-busy={busy}>
     {error && <Notice error>{error}</Notice>}{children(fields)}
-    <div><button className="button primary" disabled={busy}>{busy ? 'Saving…' : submit}</button></div>
+    <div><button className="button primary" disabled={busy}>{busy ? pendingLabel : submit}</button></div>
   </form>
 }
 export const valueOf = (form: FormData, key: string) => String(form.get(key) ?? '')

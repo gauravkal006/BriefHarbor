@@ -10,9 +10,19 @@ References
 
 ## Before deployment
 
-Install dependencies, generate and commit package-lock.json, then run the documented lint, typecheck, build, API and browser checks against a replica-set test database. The authoring session could not complete dependency installation or live MongoDB checks.
+Run npm ci, then run the documented lint, typecheck, build, API and browser checks against a replica-set test database. The lockfile is committed. Live MongoDB and hosted checks require the deployment environment.
 
 Choose Node.js 22 in both projects. Include files outside each project root so packages/contracts is available. The checked-in vercel.json files provide build commands. Leave the output directory at its framework default. After committing the lockfile, use cd ../.. && npm ci as both install commands.
+
+## Frontend showcase without MongoDB
+
+Import the repository as one Vercel project with Root Directory `apps/web` and framework Next.js. Enable files outside the root directory so the shared contracts package is available. Keep the checked-in build and install commands and the default output directory.
+
+Set `NEXT_PUBLIC_BRIEFHARBOR_DEMO=true`. Leave `NEXT_PUBLIC_BRIEFHARBOR_BASE_PATH` empty. This deployment does not need `API_ORIGIN`, MongoDB credentials or an API project. Rebuild after changing the demo flag.
+
+After deployment, open `/`, `/login`, `/signup` and `/dashboard` directly. Sign-up creates a browser-local demo profile with name and email; it never requests a password. Sample workflow changes persist in that browser. Reset demo clears both the profile and sample changes. Recruiters can also choose Explore without signing in.
+
+For the authenticated deployment, use the two projects described below and set the demo flag to false. Sign-up then uses Express and MongoDB; new accounts have no memberships. Provision client access separately through a trusted database operator or use the seeded synthetic identities in private staging.
 
 ## Express project
 
@@ -63,8 +73,8 @@ Account configuration, Atlas connectivity and hosted smoke checks remain pending
 
 ## Authoring verification record
 
-The repository npm commands were attempted. Installation failed with ENOTFOUND for registry.npmjs.org, leaving the root workspace without its required dependencies and lockfile. Docker access returned permission denied and apps/api/.env is absent, so live API tests could not start. Playwright is unavailable.
+The account-access update generated the workspace lockfile with npm install --package-lock-only. A normal npm install reached dependency installation but Windows rejected workspace symlink creation. An isolated verification copy installed the declared dependencies without workspace symlinks and passed source lint, shared-contract compilation, frontend and API typechecks, the Vercel API entry typecheck, API compilation, and four browser-storage/registration tests.
 
-An ignored verification copy used locally cached dependencies to run source lint, shared-contract compilation, frontend typechecking and the two browser-storage test suites. Those checks passed. The cached Next 15.5.2 build reached compilation/page generation during diagnosis but did not produce a final build after the route changes. Repeated attempts returned EPERM creating generated case route directories. Browser layout checks and Vercel deployment are still unverified.
+The Next.js 15.5.29 demo build compiled successfully, then Windows returned EPERM while creating generated route directories during static export. This is not a completed production build. All four new account UI checks passed against intercepted API responses at desktop and mobile widths, and signup screenshots were reviewed. Both existing navigation checks passed on the first browser run; a later desktop attempt timed out during development route compilation. The demo browser flow was blocked by EPERM writing generated dashboard chunks. Full demo browser navigation and hosted verification remain pending. Live MongoDB integration tests are also unverified: apps/api/.env is absent and the Docker engine is inaccessible to this session.
 
-After network and database setup, run npm install, retain package-lock.json, rerun all repository checks and the hosted checklist above. Test output from the cached environment is not a replacement for these checks.
+Before using real client data, run the repository checks on a clean checkout with MongoDB and complete the hosted checklist above. The public browser-local demo does not require a database.

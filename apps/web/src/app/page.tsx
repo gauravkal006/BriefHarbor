@@ -18,7 +18,8 @@ export default function Home() {
       <Link className="demo-brand" href="/" aria-label="BriefHarbor home"><Brand /></Link>
       <nav aria-label="Demo navigation">
         <a className="text-link" href="#workflow">Workflow</a>
-        <Link className="text-link" href="/cases">Cases</Link>
+        <Link className="text-link" href="/login">Sign in</Link>
+        <Link className="text-link" href="/signup">Sign up</Link>
         <Link className="button primary" href="/dashboard">Dashboard <ArrowRight size={16} aria-hidden="true" /></Link>
       </nav>
     </header>
